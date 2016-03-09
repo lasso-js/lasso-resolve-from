@@ -7,14 +7,14 @@
             "searchPath": "/node_modules"
         },
         {
+            "type": "main",
+            "dir": "/node_modules/installed-foo",
+            "main": "/node_modules/installed-foo/index.js"
+        },
+        {
             "type": "browser-override",
             "from": "/node_modules/installed-foo/index.js",
             "to": "/foo.js"
-        },
-        {
-            "type": "main",
-            "dir": "/node_modules/installed-foo",
-            "main": "/foo.js"
         }
     ]
 }

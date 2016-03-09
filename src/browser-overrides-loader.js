@@ -1,26 +1,32 @@
 var ok = require('assert').ok;
 var nodePath = require('path');
+var lassoCachingFS = require('lasso-caching-fs');
+var resolveFrom = require('resolve-from');
 var browserOverridesByDir = {};
 var flattenedBrowserOverridesByDir = {};
 
 var browserOverridesByDir = {};
 
-function resolveBrowserPath(path, dir, resolver) {
+function resolveMain(dir) {
+    return resolveFrom(dir, './');
+}
+
+function resolveBrowserPath(path, dir) {
     var resolvedPath;
 
     if (path.charAt(0) === '.') {
-        resolvedPath = resolver.resolveFrom(dir, path);
+        resolvedPath = resolveFrom(dir, path);
     } else {
-        resolvedPath = resolver.resolveFrom(dir, './' + path);
+        resolvedPath = resolveFrom(dir, './' + path);
         if (!resolvedPath) {
-            resolvedPath = resolver.resolveFrom(dir, path);
+            resolvedPath = resolveFrom(dir, path);
         }
     }
 
     return resolvedPath;
 }
 
-function loadBrowserOverridesFromPackage(pkg, dir, resolver) {
+function loadBrowserOverridesFromPackage(pkg, dir) {
     var browser = pkg.browser || pkg.browserify;
     if (!browser) {
         return null;
@@ -30,22 +36,22 @@ function loadBrowserOverridesFromPackage(pkg, dir, resolver) {
     var resolvedTarget;
 
     if (typeof browser === 'string') {
-        var resolvedMain = resolver.resolveMain(dir); // Resolve the main file for the current directory
+        var resolvedMain = resolveMain(dir); // Resolve the main file for the current directory
         if (!resolvedMain) {
             throw new Error('Invalid "browser" field in "' + nodePath.join(dir, 'package.json') + '". Module not found: ' + dir);
         }
-        resolvedTarget = resolveBrowserPath(browser, dir, resolver);
+        resolvedTarget = resolveBrowserPath(browser, dir);
         browserOverrides[resolvedMain] = resolvedTarget;
     } else {
         for (var source in browser) {
             if (browser.hasOwnProperty(source)) {
                 var target = browser[source];
-                var resolvedSource = resolveBrowserPath(source, dir, resolver);
+                var resolvedSource = resolveBrowserPath(source, dir);
                 if (!resolvedSource) {
                     throw new Error('Invalid "browser" field in "' + nodePath.join(dir, 'package.json') + '". Module not found: ' + source);
                 }
 
-                resolvedTarget = target === false ? false : resolveBrowserPath(target, dir, resolver);
+                resolvedTarget = target === false ? false : resolveBrowserPath(target, dir);
                 browserOverrides[resolvedSource] = resolvedTarget;
             }
         }
@@ -54,7 +60,7 @@ function loadBrowserOverridesFromPackage(pkg, dir, resolver) {
     return browserOverrides;
 }
 
-exports.load = function(dir, resolver) {
+exports.load = function(dir) {
     ok(dir, '"dirname" is required');
     ok(typeof dir === 'string', '"dirname" must be a string');
 
@@ -72,10 +78,10 @@ exports.load = function(dir, resolver) {
 
         if (currentBrowserOverrides === undefined) {
             var packagePath = nodePath.join(currentDir, 'package.json');
-            var pkg = resolver.readPackageSync(packagePath);
+            var pkg = lassoCachingFS.readPackageSync(packagePath);
 
             if (pkg) {
-                currentBrowserOverrides = loadBrowserOverridesFromPackage(pkg, currentDir, resolver);
+                currentBrowserOverrides = loadBrowserOverridesFromPackage(pkg, currentDir);
             }
 
             browserOverridesByDir[dir] = currentBrowserOverrides || null;
@@ -88,7 +94,6 @@ exports.load = function(dir, resolver) {
                 }
             }
         }
-
 
         var parentDir = nodePath.dirname(dir);
         if (!parentDir || parentDir === currentDir) {

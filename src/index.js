@@ -2,40 +2,22 @@
 var path = require('path');
 var Module = require('module').Module;
 var isAbsolute = require('is-absolute');
-var fs = require('fs');
 var browserOverridesLoader = require('./browser-overrides-loader');
+var lassoCachingFS = require('lasso-caching-fs');
+var resolveFrom = require('resolve-from');
 
-var FS_READ_OPTIONS = { encoding: 'utf8' };
-
-function Resolver(fromDir, fs, includeMeta) {
+function Resolver(fromDir, includeMeta, browserOverrides) {
     this.fromDir = fromDir;
-    this.fs = fs;
-
-    this.browserOverrides = browserOverridesLoader.load(fromDir, this);
-
     this.includeMeta = includeMeta;
+    this.browserOverrides = browserOverrides;
+
     this.meta = includeMeta ? [] : undefined;
 }
 
 Resolver.prototype = {
     resolveMain: function(dir) {
-        var targetModule;
-        var pkg = this.readPackageSync(path.join(dir, 'package.json'));
-        if (pkg) {
-            var main = pkg.main;
-            if (main) {
-                if (main.charAt(0) !== '.') {
-                    main = './' + main;
-                }
-                targetModule = main;
-            } else {
-                targetModule = './index';
-            }
-        } else {
-            targetModule = './index';
-        }
+        var resolvedMain = resolveFrom(dir, './');
 
-        var resolvedMain = this.resolveFrom(dir, targetModule);
         if (this.includeMeta) {
             this.meta.push({
                 'type': 'main',
@@ -49,17 +31,17 @@ Resolver.prototype = {
     tryExtensions: function(targetModule) {
         var originalExt = path.extname(targetModule);
         var hasExt = originalExt !== '';
-        var stat = this.statSync(targetModule);
+        var stat = lassoCachingFS.statSync(targetModule);
 
-        if (stat) {
+        if (stat.exists()) {
             return [targetModule, stat];
         }
 
         if (!hasExt) {
             // Short circuit for the most common case where it is a JS file
             var withJSExt = targetModule + '.js';
-            stat = this.statSync(targetModule);
-            if (stat) {
+            stat = lassoCachingFS.statSync(targetModule);
+            if (stat.exists()) {
                 return [withJSExt, stat];
             }
         }
@@ -69,8 +51,8 @@ Resolver.prototype = {
         for (var ext in extensions) {
             if (extensions.hasOwnProperty(ext) && ext !== '.node' && ext !== originalExt) {
                 var targetModuleWithExt = targetModule + ext;
-                stat = this.statSync(targetModuleWithExt);
-                if (stat) {
+                stat = lassoCachingFS.statSync(targetModuleWithExt);
+                if (stat.exists()) {
                     return [targetModuleWithExt, stat];
                 }
             }
@@ -120,9 +102,9 @@ Resolver.prototype = {
 
                 var packagePath = path.join(searchPath, packageName);
 
-                stat = this.statSync(packagePath);
+                stat = lassoCachingFS.statSync(packagePath);
 
-                if (stat && stat.isDirectory()) {
+                if (stat.isDirectory()) {
                     if (this.includeMeta) {
                         this.meta.push({
                             type: 'installed',
@@ -155,6 +137,7 @@ Resolver.prototype = {
         }
 
         var browserOverrides = this.browserOverrides;
+
         if (browserOverrides) {
             // Keep resolving the browser override
 
@@ -176,35 +159,15 @@ Resolver.prototype = {
         }
 
         return resolvedPath;
-    },
-
-    statSync: function(path) {
-        var fs = this.fs;
-        try {
-            return fs.statSync(path);
-        } catch(e) {
-            return undefined;
-        }
-    },
-
-    readPackageSync: function(path) {
-        var fs = this.fs;
-        var pkgSrc;
-
-        try {
-            pkgSrc = fs.readFileSync(path, FS_READ_OPTIONS);
-        } catch(e) {
-            return undefined;
-        }
-
-        return JSON.parse(pkgSrc);
     }
 };
 
 
-function resolveFrom(fromDir, targetModule, options) {
+function lassoResolveFrom(fromDir, targetModule, options) {
     var includeMeta = options && options.includeMeta === true;
-    var resolver = new Resolver(fromDir, (options && options.fs) || fs, includeMeta);
+    var browserOverrides = browserOverridesLoader.load(fromDir);
+
+    var resolver = new Resolver(fromDir, includeMeta, browserOverrides);
     var resolvedPath = resolver.resolveFrom(fromDir, targetModule);
     if (!resolvedPath) {
         return undefined;
@@ -220,4 +183,4 @@ function resolveFrom(fromDir, targetModule, options) {
     }
 }
 
-module.exports = resolveFrom;
+module.exports = lassoResolveFrom;

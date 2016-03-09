@@ -2,14 +2,14 @@
     "path": "/browser.js",
     "meta": [
         {
+            "type": "main",
+            "dir": "/",
+            "main": "/index.js"
+        },
+        {
             "type": "browser-override",
             "from": "/index.js",
             "to": "/browser.js"
-        },
-        {
-            "type": "main",
-            "dir": "/",
-            "main": "/browser.js"
         }
     ]
 }

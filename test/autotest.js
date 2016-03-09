@@ -30,8 +30,11 @@ function autoTest(name, dir, run, options) {
                 actual,
                 expectedObject);
         } catch(e) {
-            // console.error('Unexpected output for "' + name + '":\nEXPECTED (' + expectedPath + '):\n---------\n' + expectedJSON +
-            //     '\n---------\nACTUAL (' + actualPath + '):\n---------\n' + actualJSON + '\n---------');
+            var actualJSON = JSON.stringify(actual, null, 4);
+            var expectedJSON = JSON.stringify(expectedObject, null, 4);
+
+            console.error('Unexpected output for "' + name + '":\nEXPECTED (' + expectedPath + '):\n---------\n' + expectedJSON +
+                '\n---------\nACTUAL (' + actualPath + '):\n---------\n' + actualJSON + '\n---------');
             throw new Error('Unexpected output for "' + name + '"');
         }
     } else {
