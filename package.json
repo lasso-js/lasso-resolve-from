@@ -1,0 +1,22 @@
+{
+  "name": "lasso-resolve-from",
+  "version": "1.0.0",
+  "description": "",
+  "main": "src",
+  "scripts": {
+    "test": "npm run mocha && npm run jshint",
+    "mocha": "node_modules/.bin/mocha --ui bdd --reporter spec ./test",
+    "jshint": "node_modules/.bin/jshint src/"
+  },
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "is-absolute": "^0.2.3"
+  },
+  "devDependencies": {
+    "chai": "^3.5.0",
+    "jshint": "^2.9.1",
+    "mocha": "^2.4.5",
+    "raptor-polyfill": "^1.0.2"
+  }
+}

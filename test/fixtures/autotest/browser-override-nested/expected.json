@@ -1,0 +1,10 @@
+{
+    "path": "/nested/browser.js",
+    "meta": [
+        {
+            "type": "browser-override",
+            "from": "/nested/server.js",
+            "to": "/nested/browser.js"
+        }
+    ]
+}

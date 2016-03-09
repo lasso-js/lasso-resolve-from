@@ -1,0 +1,15 @@
+{
+    "path": "/browser.js",
+    "meta": [
+        {
+            "type": "browser-override",
+            "from": "/index.js",
+            "to": "/browser.js"
+        },
+        {
+            "type": "main",
+            "dir": "/",
+            "main": "/browser.js"
+        }
+    ]
+}

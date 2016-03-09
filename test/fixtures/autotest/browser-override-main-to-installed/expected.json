@@ -1,0 +1,15 @@
+{
+    "path": "/node_modules/installed-foo/index.js",
+    "meta": [
+        {
+            "type": "browser-override",
+            "from": "/index.js",
+            "to": "/node_modules/installed-foo/index.js"
+        },
+        {
+            "type": "main",
+            "dir": "/",
+            "main": "/node_modules/installed-foo/index.js"
+        }
+    ]
+}

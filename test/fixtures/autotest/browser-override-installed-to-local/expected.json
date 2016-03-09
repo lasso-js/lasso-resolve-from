@@ -1,0 +1,20 @@
+{
+    "path": "/foo.js",
+    "meta": [
+        {
+            "type": "installed",
+            "packageName": "installed-foo",
+            "searchPath": "/node_modules"
+        },
+        {
+            "type": "browser-override",
+            "from": "/node_modules/installed-foo/index.js",
+            "to": "/foo.js"
+        },
+        {
+            "type": "main",
+            "dir": "/node_modules/installed-foo",
+            "main": "/foo.js"
+        }
+    ]
+}

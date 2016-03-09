@@ -1,0 +1,10 @@
+{
+    "path": "/node_modules/installed-foo/foo.js",
+    "meta": [
+        {
+            "type": "installed",
+            "packageName": "installed-foo",
+            "searchPath": "/node_modules"
+        }
+    ]
+}
