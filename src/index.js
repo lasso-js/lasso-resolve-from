@@ -7,6 +7,12 @@ var lassoCachingFS = require('lasso-caching-fs');
 var resolveFrom = require('resolve-from');
 var extend = require('raptor-util/extend');
 
+function safeResolveFrom(fromDir, targetModule) {
+    try {
+        return resolveFrom(fromDir, targetModule);
+    } catch(e) {}
+}
+
 function Resolver(fromDir, includeMeta, remaps) {
     this.fromDir = fromDir;
     this.includeMeta = includeMeta;
@@ -125,8 +131,14 @@ Resolver.prototype = {
             }
 
             if (!resolvedPath) {
-                // We tried all of the search paths and did not find the installed packaged
-                return undefined;
+
+                // This might be a native Node.js module such as `path` so let's try the Node.js resolver
+                resolvedPath = safeResolveFrom(fromDir, targetModule);
+
+                if (!resolvedPath) {
+                    // We tried all of the search paths and did not find the installed packaged
+                    return undefined;
+                }
             }
         }
 
