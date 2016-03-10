@@ -1,0 +1,10 @@
+{
+    "path": false,
+    "meta": [
+        {
+            "type": "remap",
+            "from": "/server.js",
+            "to": false
+        }
+    ]
+}

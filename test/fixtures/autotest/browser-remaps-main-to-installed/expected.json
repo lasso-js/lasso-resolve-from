@@ -7,7 +7,7 @@
             "main": "/index.js"
         },
         {
-            "type": "browser-override",
+            "type": "remap",
             "from": "/index.js",
             "to": "/node_modules/installed-foo/index.js"
         }

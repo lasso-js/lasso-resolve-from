@@ -2,7 +2,7 @@
     "path": "/node_modules/installed-foo/index.js",
     "meta": [
         {
-            "type": "browser-override",
+            "type": "remap",
             "from": "/foo.js",
             "to": "/node_modules/installed-foo/index.js"
         }

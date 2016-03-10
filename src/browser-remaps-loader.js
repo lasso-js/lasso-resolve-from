@@ -2,10 +2,10 @@ var ok = require('assert').ok;
 var nodePath = require('path');
 var lassoCachingFS = require('lasso-caching-fs');
 var resolveFrom = require('resolve-from');
-var browserOverridesByDir = {};
-var flattenedBrowserOverridesByDir = {};
+var browserRemapsByDir = {};
+var flattenedBrowserRemapsByDir = {};
 
-var browserOverridesByDir = {};
+var browserRemapsByDir = {};
 
 function resolveMain(dir) {
     return resolveFrom(dir, './');
@@ -26,22 +26,26 @@ function resolveBrowserPath(path, dir) {
     return resolvedPath;
 }
 
-function loadBrowserOverridesFromPackage(pkg, dir) {
-    var browser = pkg.browser || pkg.browserify;
-    if (!browser) {
-        return null;
+function loadBrowserRemapsFromPackage(pkg, dir) {
+    var browser = pkg.browser;
+
+    if (pkg.browser === undefined) {
+        browser = pkg.browserify;
     }
 
-    var browserOverrides = {};
-    var resolvedTarget;
+    if (browser == null) {
+        return undefined;
+    }
 
-    if (typeof browser === 'string') {
+    var browserRemaps = {};
+
+    if (typeof browser === 'string' || browser === false) {
         var resolvedMain = resolveMain(dir); // Resolve the main file for the current directory
         if (!resolvedMain) {
             throw new Error('Invalid "browser" field in "' + nodePath.join(dir, 'package.json') + '". Module not found: ' + dir);
         }
-        resolvedTarget = resolveBrowserPath(browser, dir);
-        browserOverrides[resolvedMain] = resolvedTarget;
+
+        browserRemaps[resolvedMain] = browser ? resolveBrowserPath(browser, dir) : false;
     } else {
         for (var source in browser) {
             if (browser.hasOwnProperty(source)) {
@@ -51,46 +55,45 @@ function loadBrowserOverridesFromPackage(pkg, dir) {
                     throw new Error('Invalid "browser" field in "' + nodePath.join(dir, 'package.json') + '". Module not found: ' + source);
                 }
 
-                resolvedTarget = target === false ? false : resolveBrowserPath(target, dir);
-                browserOverrides[resolvedSource] = resolvedTarget;
+                browserRemaps[resolvedSource] = target === false ? false : resolveBrowserPath(target, dir);
             }
         }
     }
 
-    return browserOverrides;
+    return browserRemaps;
 }
 
 exports.load = function(dir) {
     ok(dir, '"dirname" is required');
     ok(typeof dir === 'string', '"dirname" must be a string');
 
-    var browserOverrides = flattenedBrowserOverridesByDir[dir];
-    if (browserOverrides) {
-        return browserOverrides;
+    var browserRemaps = flattenedBrowserRemapsByDir[dir];
+    if (browserRemaps) {
+        return browserRemaps;
     }
 
-    browserOverrides = {};
+    browserRemaps = {};
 
     var currentDir = dir;
 
     while(currentDir) {
-        var currentBrowserOverrides = browserOverridesByDir[currentDir];
+        var currentBrowserRemaps = browserRemapsByDir[currentDir];
 
-        if (currentBrowserOverrides === undefined) {
+        if (currentBrowserRemaps === undefined) {
             var packagePath = nodePath.join(currentDir, 'package.json');
             var pkg = lassoCachingFS.readPackageSync(packagePath);
 
             if (pkg) {
-                currentBrowserOverrides = loadBrowserOverridesFromPackage(pkg, currentDir);
+                currentBrowserRemaps = loadBrowserRemapsFromPackage(pkg, currentDir);
             }
 
-            browserOverridesByDir[dir] = currentBrowserOverrides || null;
+            browserRemapsByDir[dir] = currentBrowserRemaps || null;
         }
 
-        if (currentBrowserOverrides) {
-            for (var k in currentBrowserOverrides) {
-                if (currentBrowserOverrides.hasOwnProperty(k) && !browserOverrides.hasOwnProperty(k)) {
-                    browserOverrides[k] = currentBrowserOverrides[k];
+        if (currentBrowserRemaps) {
+            for (var k in currentBrowserRemaps) {
+                if (currentBrowserRemaps.hasOwnProperty(k) && !browserRemaps.hasOwnProperty(k)) {
+                    browserRemaps[k] = currentBrowserRemaps[k];
                 }
             }
         }
@@ -102,7 +105,7 @@ exports.load = function(dir) {
         currentDir = parentDir;
     }
 
-    flattenedBrowserOverridesByDir[dir] = browserOverrides;
+    flattenedBrowserRemapsByDir[dir] = browserRemaps;
 
-    return browserOverrides;
+    return browserRemaps;
 };

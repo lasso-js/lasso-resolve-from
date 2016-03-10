@@ -2,7 +2,7 @@
     "path": "/nested/browser.js",
     "meta": [
         {
-            "type": "browser-override",
+            "type": "remap",
             "from": "/nested/server.js",
             "to": "/nested/browser.js"
         }

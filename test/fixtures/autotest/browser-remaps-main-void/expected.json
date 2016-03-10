@@ -1,5 +1,5 @@
 {
-    "path": "/browser.js",
+    "path": false,
     "meta": [
         {
             "type": "main",
@@ -7,9 +7,9 @@
             "main": "/index.js"
         },
         {
-            "type": "browser-override",
+            "type": "remap",
             "from": "/index.js",
-            "to": "/browser.js"
+            "to": false
         }
     ]
 }

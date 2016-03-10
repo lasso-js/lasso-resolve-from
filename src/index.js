@@ -2,14 +2,15 @@
 var path = require('path');
 var Module = require('module').Module;
 var isAbsolute = require('is-absolute');
-var browserOverridesLoader = require('./browser-overrides-loader');
+var browserRemapsLoader = require('./browser-remaps-loader');
 var lassoCachingFS = require('lasso-caching-fs');
 var resolveFrom = require('resolve-from');
+var extend = require('raptor-util/extend');
 
-function Resolver(fromDir, includeMeta, browserOverrides) {
+function Resolver(fromDir, includeMeta, remaps) {
     this.fromDir = fromDir;
     this.includeMeta = includeMeta;
-    this.browserOverrides = browserOverrides;
+    this.remaps = remaps;
 
     this.meta = includeMeta ? [] : undefined;
 }
@@ -136,24 +137,27 @@ Resolver.prototype = {
             }
         }
 
-        var browserOverrides = this.browserOverrides;
+        var remaps = this.remaps;
 
-        if (browserOverrides) {
-            // Keep resolving the browser override
-
+        if (remaps) {
+            // Handle all of the remappings
             while (true) {
-                var browserOverride = browserOverrides[resolvedPath];
-                if (browserOverride) {
+                var remapTo = remaps[resolvedPath];
+                if (remapTo === undefined) {
+                    break;
+                } else {
                     if (this.includeMeta) {
                         this.meta.push({
-                            type: 'browser-override',
+                            type: 'remap',
                             from: resolvedPath,
-                            to: browserOverride
+                            to: remapTo
                         });
                     }
-                    resolvedPath = browserOverride;
-                } else {
-                    break;
+                    resolvedPath = remapTo;
+
+                    if (resolvedPath === false) {
+                        break;
+                    }
                 }
             }
         }
@@ -165,11 +169,15 @@ Resolver.prototype = {
 
 function lassoResolveFrom(fromDir, targetModule, options) {
     var includeMeta = options && options.includeMeta === true;
-    var browserOverrides = browserOverridesLoader.load(fromDir);
+    var remaps = browserRemapsLoader.load(fromDir);
+    if (options && options.remaps) {
+        remaps = extend({}, remaps);
+        extend(remaps, options.remaps);
+    }
 
-    var resolver = new Resolver(fromDir, includeMeta, browserOverrides);
+    var resolver = new Resolver(fromDir, includeMeta, remaps);
     var resolvedPath = resolver.resolveFrom(fromDir, targetModule);
-    if (!resolvedPath) {
+    if (resolvedPath == null) {
         return undefined;
     }
 
