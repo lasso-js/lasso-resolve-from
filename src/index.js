@@ -1,4 +1,5 @@
 'use strict';
+var ok = require('assert').ok;
 var path = require('path');
 var Module = require('module').Module;
 var isAbsolute = require('is-absolute');
@@ -7,22 +8,16 @@ var lassoCachingFS = require('lasso-caching-fs');
 var resolveFrom = require('resolve-from');
 var extend = require('raptor-util/extend');
 
-function safeResolveFrom(fromDir, targetModule) {
-    try {
-        return resolveFrom(fromDir, targetModule);
-    } catch(e) {}
-}
+class Resolver {
+    constructor(includeMeta, remaps) {
+        this.includeMeta = includeMeta;
+        this.remaps = remaps;
 
-function Resolver(fromDir, includeMeta, remaps) {
-    this.fromDir = fromDir;
-    this.includeMeta = includeMeta;
-    this.remaps = remaps;
+        this.meta = includeMeta ? [] : undefined;
+    }
 
-    this.meta = includeMeta ? [] : undefined;
-}
+    resolveMain(dir) {
 
-Resolver.prototype = {
-    resolveMain: function(dir) {
         var resolvedMain = resolveFrom(dir, './');
 
         if (this.includeMeta) {
@@ -33,9 +28,9 @@ Resolver.prototype = {
             });
         }
         return resolvedMain;
-    },
+    }
 
-    tryExtensions: function(targetModule) {
+    tryExtensions(targetModule) {
         var originalExt = path.extname(targetModule);
         var hasExt = originalExt !== '';
         var stat = lassoCachingFS.statSync(targetModule);
@@ -64,9 +59,9 @@ Resolver.prototype = {
                 }
             }
         }
-    },
+    }
 
-    resolveFrom: function(fromDir, targetModule) {
+    resolveFrom(fromDir, targetModule) {
         var resolved;
         var resolvedPath;
         var stat;
@@ -131,14 +126,7 @@ Resolver.prototype = {
             }
 
             if (!resolvedPath) {
-
-                // This might be a native Node.js module such as `path` so let's try the Node.js resolver
-                resolvedPath = safeResolveFrom(fromDir, targetModule);
-
-                if (!resolvedPath) {
-                    // We tried all of the search paths and did not find the installed packaged
-                    return undefined;
-                }
+                return undefined;
             }
         }
 
@@ -150,11 +138,21 @@ Resolver.prototype = {
         }
 
         var remaps = this.remaps;
+        var targetDir = path.dirname(resolvedPath);
 
+        // The target file might have a different set of remaps based on where it is located on the file system
+        var targetRemaps = targetDir === fromDir ? null : browserRemapsLoader.load(path.dirname(resolvedPath));
+
+        var voidRemap = false;
         if (remaps) {
             // Handle all of the remappings
             while (true) {
                 var remapTo = remaps[resolvedPath];
+
+                if (remapTo === undefined && targetRemaps) {
+                    remapTo = targetRemaps[resolvedPath];
+                }
+
                 if (remapTo === undefined) {
                     break;
                 } else {
@@ -165,21 +163,38 @@ Resolver.prototype = {
                             to: remapTo
                         });
                     }
-                    resolvedPath = remapTo;
 
-                    if (resolvedPath === false) {
+                    if (remapTo === false) {
+                        voidRemap = true;
                         break;
                     }
+
+                    resolvedPath = remapTo;
                 }
             }
         }
 
-        return resolvedPath;
+        var result = { path: resolvedPath };
+
+        if (this.includeMeta) {
+            result.meta = this.meta;
+        }
+
+        if (voidRemap) {
+            result.voidRemap = true;
+        }
+
+        return result;
     }
-};
+}
 
 
 function lassoResolveFrom(fromDir, targetModule, options) {
+    ok(targetModule, '"targetModule" is required');
+    ok(typeof targetModule === 'string', '"targetModule" should be a string');
+    ok(fromDir, '"fromDir" is required');
+    ok(typeof fromDir === 'string', '"fromDir" should be a string');
+
     var includeMeta = options && options.includeMeta === true;
     var remaps = browserRemapsLoader.load(fromDir);
     if (options && options.remaps) {
@@ -187,20 +202,13 @@ function lassoResolveFrom(fromDir, targetModule, options) {
         extend(remaps, options.remaps);
     }
 
-    var resolver = new Resolver(fromDir, includeMeta, remaps);
-    var resolvedPath = resolver.resolveFrom(fromDir, targetModule);
-    if (resolvedPath == null) {
+    var resolver = new Resolver(includeMeta, remaps);
+    var resolved = resolver.resolveFrom(fromDir, targetModule);
+    if (resolved == null) {
         return undefined;
     }
 
-    if (includeMeta) {
-        return {
-            path: resolvedPath,
-            meta: resolver.meta
-        };
-    } else {
-        return resolvedPath;
-    }
+    return resolved;
 }
 
 module.exports = lassoResolveFrom;

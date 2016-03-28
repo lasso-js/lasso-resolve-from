@@ -23,7 +23,7 @@ function autoTest(name, dir, run, options) {
     }
 
     if (ext === '.json') {
-        var expectedObject = JSON.parse(expected);
+        var expectedObject = expected === 'undefined' ? undefined : JSON.parse(expected);
 
         try {
             assert.deepEqual(

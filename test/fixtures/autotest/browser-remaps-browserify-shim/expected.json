@@ -1,10 +1,1 @@
-{
-    "path": "/Users/psteeleidem/development/github/lasso-js/lasso-resolve-from/node_modules/path-browserify/index.js",
-    "meta": [
-        {
-            "type": "remap",
-            "from": "path",
-            "to": "/Users/psteeleidem/development/github/lasso-js/lasso-resolve-from/node_modules/path-browserify/index.js"
-        }
-    ]
-}
+undefined

@@ -1,5 +1,5 @@
 {
-    "path": false,
+    "path": "/index.js",
     "meta": [
         {
             "type": "main",
@@ -11,5 +11,6 @@
             "from": "/index.js",
             "to": false
         }
-    ]
+    ],
+    "voidRemap": true
 }

@@ -1,10 +1,11 @@
 {
-    "path": false,
+    "path": "/server.js",
     "meta": [
         {
             "type": "remap",
             "from": "/server.js",
             "to": false
         }
-    ]
+    ],
+    "voidRemap": true
 }
