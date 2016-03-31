@@ -5,210 +5,224 @@ var Module = require('module').Module;
 var isAbsolute = require('is-absolute');
 var browserRemapsLoader = require('./browser-remaps-loader');
 var lassoCachingFS = require('lasso-caching-fs');
-var resolveFrom = require('resolve-from');
+
 var extend = require('raptor-util/extend');
 
-class Resolver {
-    constructor(includeMeta, remaps) {
-        this.includeMeta = includeMeta;
-        this.remaps = remaps;
+function resolveMain(dir, meta) {
 
-        this.meta = includeMeta ? [] : undefined;
-    }
+    var packagePath = path.join(dir, 'package.json');
+    var pkg = lassoCachingFS.readPackageSync(packagePath);
 
-    resolveMain(dir) {
+    var main = pkg && pkg.main;
 
-        var resolvedMain = resolveFrom(dir, './');
-
-        if (this.includeMeta) {
-            this.meta.push({
-                'type': 'main',
-                'dir': dir,
-                'main': resolvedMain
-            });
+    if (main) {
+        if (main.charAt(0) !== '.') {
+            main = './' + main;
         }
-        return resolvedMain;
+    } else {
+        main = './index';
     }
 
-    tryExtensions(targetModule) {
-        var originalExt = path.extname(targetModule);
-        var hasExt = originalExt !== '';
-        var stat = lassoCachingFS.statSync(targetModule);
+    var resolvedMain = resolveFrom(dir, main, null, null);
+    if (!resolvedMain) {
+        return undefined;
+    }
 
+    if (meta) {
+        meta.push({
+            'type': 'main',
+            'dir': dir,
+            'main': resolvedMain.path
+        });
+    }
+
+    return resolvedMain.path;
+}
+
+function tryExtensions(targetModule) {
+    var originalExt = path.extname(targetModule);
+    var hasExt = originalExt !== '';
+    var stat = lassoCachingFS.statSync(targetModule);
+
+    if (stat.exists()) {
+        return [targetModule, stat];
+    }
+
+    if (!hasExt) {
+        // Short circuit for the most common case where it is a JS file
+        var withJSExt = targetModule + '.js';
+        stat = lassoCachingFS.statSync(targetModule);
         if (stat.exists()) {
-            return [targetModule, stat];
-        }
-
-        if (!hasExt) {
-            // Short circuit for the most common case where it is a JS file
-            var withJSExt = targetModule + '.js';
-            stat = lassoCachingFS.statSync(targetModule);
-            if (stat.exists()) {
-                return [withJSExt, stat];
-            }
-        }
-
-        // Try with the extensions
-        var extensions = require.extensions;
-        for (var ext in extensions) {
-            if (extensions.hasOwnProperty(ext) && ext !== '.node' && ext !== originalExt) {
-                var targetModuleWithExt = targetModule + ext;
-                stat = lassoCachingFS.statSync(targetModuleWithExt);
-                if (stat.exists()) {
-                    return [targetModuleWithExt, stat];
-                }
-            }
+            return [withJSExt, stat];
         }
     }
 
-    resolveFrom(fromDir, targetModule) {
-        var resolved;
-        var resolvedPath;
-        var stat;
-
-        if (isAbsolute(targetModule)) {
-            resolved = this.tryExtensions(targetModule);
-            if (!resolved) {
-                return undefined;
-            }
-
-            resolvedPath = resolved[0];
-            stat = resolved[1];
-        } else if (targetModule.charAt(0) === '.') {
-            // Don't go through the search paths for relative paths
-            resolvedPath = path.join(fromDir, targetModule);
-            resolved = this.tryExtensions(resolvedPath);
-            if (!resolved) {
-                return undefined;
-            }
-
-            resolvedPath = resolved[0];
-            stat = resolved[1];
-        } else {
-            var sepIndex = targetModule.indexOf('/');
-            var packageName;
-            var packageRelativePath;
-
-            if (sepIndex === -1) {
-                packageName = targetModule;
-                packageRelativePath = null;
-            } else {
-                packageName = targetModule.substring(0, sepIndex);
-                packageRelativePath = targetModule.substring(sepIndex + 1);
-            }
-
-            var searchPaths = Module._nodeModulePaths(fromDir);
-
-            for (var i=0, len=searchPaths.length; i<len; i++) {
-                var searchPath = searchPaths[i];
-
-                var packagePath = path.join(searchPath, packageName);
-
-                stat = lassoCachingFS.statSync(packagePath);
-
-                if (stat.isDirectory()) {
-                    if (this.includeMeta) {
-                        this.meta.push({
-                            type: 'installed',
-                            packageName: packageName,
-                            searchPath: searchPath
-                        });
-                    }
-                    // The installed module has been found, but now need to find the module
-                    // within the package
-                    if (packageRelativePath) {
-                        return this.resolveFrom(packagePath, './' + packageRelativePath);
-                    } else {
-                        resolvedPath = packagePath;
-                    }
-                    break;
-                }
-            }
-
-            if (!resolvedPath) {
-                return undefined;
+    // Try with the extensions
+    var extensions = require.extensions;
+    for (var ext in extensions) {
+        if (extensions.hasOwnProperty(ext) && ext !== '.node' && ext !== originalExt) {
+            var targetModuleWithExt = targetModule + ext;
+            stat = lassoCachingFS.statSync(targetModuleWithExt);
+            if (stat.exists()) {
+                return [targetModuleWithExt, stat];
             }
         }
-
-        if (stat.isDirectory()) {
-            resolvedPath = this.resolveMain(resolvedPath);
-            if (!resolvedPath) {
-                return undefined;
-            }
-        }
-
-        var remaps = this.remaps;
-        var targetDir = path.dirname(resolvedPath);
-
-        // The target file might have a different set of remaps based on where it is located on the file system
-        var targetRemaps = targetDir === fromDir ? null : browserRemapsLoader.load(path.dirname(resolvedPath));
-
-        var voidRemap = false;
-        if (remaps) {
-            // Handle all of the remappings
-            while (true) {
-                var remapTo = remaps[resolvedPath];
-
-                if (remapTo === undefined && targetRemaps) {
-                    remapTo = targetRemaps[resolvedPath];
-                }
-
-                if (remapTo === undefined) {
-                    break;
-                } else {
-                    if (this.includeMeta) {
-                        this.meta.push({
-                            type: 'remap',
-                            from: resolvedPath,
-                            to: remapTo
-                        });
-                    }
-
-                    if (remapTo === false) {
-                        voidRemap = true;
-                        break;
-                    }
-
-                    resolvedPath = remapTo;
-                }
-            }
-        }
-
-        var result = { path: resolvedPath };
-
-        if (this.includeMeta) {
-            result.meta = this.meta;
-        }
-
-        if (voidRemap) {
-            result.voidRemap = true;
-        }
-
-        return result;
     }
 }
 
+function resolveFrom(fromDir, targetModule, meta, remaps) {
+    var resolved;
+    var resolvedPath;
+    var stat;
 
-function lassoResolveFrom(fromDir, targetModule, options) {
+    if (isAbsolute(targetModule)) {
+        resolved = tryExtensions(targetModule);
+        if (!resolved) {
+            return undefined;
+        }
+
+        resolvedPath = resolved[0];
+        stat = resolved[1];
+    } else if (targetModule.charAt(0) === '.') {
+        // Don't go through the search paths for relative paths
+        resolvedPath = path.join(fromDir, targetModule);
+        resolved = tryExtensions(resolvedPath);
+        if (!resolved) {
+            return undefined;
+        }
+
+        resolvedPath = resolved[0];
+        stat = resolved[1];
+    } else {
+        var sepIndex = targetModule.indexOf('/');
+        var packageName;
+        var packageRelativePath;
+
+        if (sepIndex === -1) {
+            packageName = targetModule;
+            packageRelativePath = null;
+        } else {
+            packageName = targetModule.substring(0, sepIndex);
+            packageRelativePath = targetModule.substring(sepIndex + 1);
+        }
+
+        var searchPaths = Module._nodeModulePaths(fromDir);
+
+        for (var i=0, len=searchPaths.length; i<len; i++) {
+            var searchPath = searchPaths[i];
+
+            var packagePath = path.join(searchPath, packageName);
+
+            stat = lassoCachingFS.statSync(packagePath);
+
+            if (stat.isDirectory()) {
+                if (meta) {
+                    meta.push({
+                        type: 'installed',
+                        packageName: packageName,
+                        searchPath: searchPath
+                    });
+                }
+                // The installed module has been found, but now need to find the module
+                // within the package
+                if (packageRelativePath) {
+                    return resolveFrom(packagePath, './' + packageRelativePath, meta, remaps);
+                } else {
+                    resolvedPath = packagePath;
+                }
+                break;
+            }
+        }
+
+        if (!resolvedPath) {
+            return undefined;
+        }
+    }
+
+    if (stat.isDirectory()) {
+        resolvedPath = resolveMain(resolvedPath, meta);
+        if (!resolvedPath) {
+            return undefined;
+        }
+    }
+
+    var targetDir = path.dirname(resolvedPath);
+
+    // The target file might have a different set of remaps based on where it is located on the file system
+    var targetRemaps = !remaps || targetDir === fromDir ? null : browserRemapsLoader.load(path.dirname(resolvedPath), resolveFrom);
+
+    var voidRemap = false;
+    if (remaps) {
+        // Handle all of the remappings
+        while (true) {
+            var remapTo = remaps[resolvedPath];
+
+            if (remapTo === undefined && targetRemaps) {
+                remapTo = targetRemaps[resolvedPath];
+            }
+
+            if (remapTo === undefined) {
+                break;
+            } else {
+                var remapToTarget = typeof remapTo === 'object' ? remapTo.path : remapTo;
+
+                if (meta) {
+                    meta.push({
+                        type: 'remap',
+                        from: resolvedPath,
+                        to: remapToTarget
+                    });
+
+                    if (remapTo.meta) {
+                        for (let i=0; i<remapTo.meta.length; i++) {
+                            meta.push(remapTo.meta[i]);
+                        }
+                    }
+                }
+
+                if (remapToTarget === false) {
+                    voidRemap = true;
+                    break;
+                }
+
+                resolvedPath = remapToTarget;
+            }
+        }
+    }
+
+    var result = { path: resolvedPath };
+
+    if (meta) {
+        result.meta = meta;
+    }
+
+    if (voidRemap) {
+        result.voidRemap = true;
+    }
+
+    return result;
+}
+
+module.exports = function(fromDir, targetModule, options) {
     ok(targetModule, '"targetModule" is required');
     ok(typeof targetModule === 'string', '"targetModule" should be a string');
     ok(fromDir, '"fromDir" is required');
     ok(typeof fromDir === 'string', '"fromDir" should be a string');
 
     var includeMeta = options && options.includeMeta === true;
-    var remaps = browserRemapsLoader.load(fromDir);
+    var meta = includeMeta ? [] : undefined;
+
+    var remaps = browserRemapsLoader.load(fromDir, resolveFrom);
     if (options && options.remaps) {
         remaps = extend({}, remaps);
         extend(remaps, options.remaps);
     }
 
-    var resolver = new Resolver(includeMeta, remaps);
-    var resolved = resolver.resolveFrom(fromDir, targetModule);
+    var resolved = resolveFrom(fromDir, targetModule, meta, remaps);
+
     if (resolved == null) {
         return undefined;
     }
 
     return resolved;
-}
-
-module.exports = lassoResolveFrom;
+};

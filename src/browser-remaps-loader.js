@@ -1,32 +1,39 @@
 var ok = require('assert').ok;
 var nodePath = require('path');
 var lassoCachingFS = require('lasso-caching-fs');
-var resolveFrom = require('resolve-from');
 var browserRemapsByDir = {};
 var flattenedBrowserRemapsByDir = {};
 
 var browserRemapsByDir = {};
 
-function resolveMain(dir) {
-    return resolveFrom(dir, './');
+function resolveMain(dir, resolveFrom) {
+    var meta = [];
+    var remaps = null;
+
+    var resolved = resolveFrom(dir, './', meta, remaps);
+    return resolved;
 }
 
-function resolveBrowserPath(path, dir) {
-    var resolvedPath;
+function resolveBrowserPath(path, dir, resolveFrom) {
+
+    var meta = [];
+    var remaps = null;
+
+    var resolved;
 
     if (path.charAt(0) === '.') {
-        resolvedPath = resolveFrom(dir, path);
+        resolved = resolveFrom(dir, path, meta, remaps);
     } else {
-        resolvedPath = resolveFrom(dir, './' + path);
-        if (!resolvedPath) {
-            resolvedPath = resolveFrom(dir, path);
+        resolved = resolveFrom(dir, './' + path, meta, remaps);
+        if (!resolved) {
+            resolved = resolveFrom(dir, path, meta, remaps);
         }
     }
 
-    return resolvedPath;
+    return resolved;
 }
 
-function loadBrowserRemapsFromPackage(pkg, dir) {
+function loadBrowserRemapsFromPackage(pkg, dir, resolveFrom) {
     var browser = pkg.browser;
 
     if (pkg.browser === undefined) {
@@ -40,22 +47,20 @@ function loadBrowserRemapsFromPackage(pkg, dir) {
     var browserRemaps = {};
 
     if (typeof browser === 'string' || browser === false) {
-        var resolvedMain = resolveMain(dir); // Resolve the main file for the current directory
+        var resolvedMain = resolveMain(dir, resolveFrom); // Resolve the main file for the current directory
         if (!resolvedMain) {
             throw new Error('Invalid "browser" field in "' + nodePath.join(dir, 'package.json') + '". Module not found: ' + dir);
         }
 
-        browserRemaps[resolvedMain] = browser ? resolveBrowserPath(browser, dir) : false;
+        browserRemaps[resolvedMain.path] = browser ? resolveBrowserPath(browser, dir, resolveFrom) : false;
     } else {
         for (var source in browser) {
             if (browser.hasOwnProperty(source)) {
                 var target = browser[source];
-                var resolvedSource = resolveBrowserPath(source, dir);
-                if (!resolvedSource) {
-                    throw new Error('Invalid "browser" field in "' + nodePath.join(dir, 'package.json') + '". Module not found: ' + source);
+                var resolvedSource = resolveBrowserPath(source, dir, resolveFrom);
+                if (resolvedSource) {
+                    browserRemaps[resolvedSource.path] = target === false ? false : resolveBrowserPath(target, dir, resolveFrom);
                 }
-
-                browserRemaps[resolvedSource] = target === false ? false : resolveBrowserPath(target, dir);
             }
         }
     }
@@ -63,7 +68,7 @@ function loadBrowserRemapsFromPackage(pkg, dir) {
     return browserRemaps;
 }
 
-exports.load = function(dir) {
+exports.load = function(dir, resolveFrom) {
     ok(dir, '"dirname" is required');
     ok(typeof dir === 'string', '"dirname" must be a string');
 
@@ -84,7 +89,7 @@ exports.load = function(dir) {
             var pkg = lassoCachingFS.readPackageSync(packagePath);
 
             if (pkg) {
-                currentBrowserRemaps = loadBrowserRemapsFromPackage(pkg, currentDir);
+                currentBrowserRemaps = loadBrowserRemapsFromPackage(pkg, currentDir, resolveFrom);
             }
 
             browserRemapsByDir[dir] = currentBrowserRemaps || null;

@@ -12,8 +12,7 @@
   "license": "ISC",
   "dependencies": {
     "is-absolute": "^0.2.3",
-    "raptor-util": "^1.0.10",
-    "resolve-from": "^2.0.0"
+    "raptor-util": "^1.0.10"
   },
   "devDependencies": {
     "chai": "^3.5.0",

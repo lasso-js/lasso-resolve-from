@@ -1,0 +1,15 @@
+{
+    "path": "/node_modules/symlink-module/src/index.js",
+    "meta": [
+        {
+            "type": "installed",
+            "packageName": "symlink-module",
+            "searchPath": "/node_modules"
+        },
+        {
+            "type": "main",
+            "dir": "/node_modules/symlink-module",
+            "main": "/node_modules/symlink-module/src/index.js"
+        }
+    ]
+}
