@@ -1,0 +1,15 @@
+{
+    "path": "/node_modules/@foo/bar/index.js",
+    "meta": [
+        {
+            "type": "installed",
+            "packageName": "@foo/bar",
+            "searchPath": "/node_modules"
+        },
+        {
+            "type": "main",
+            "dir": "/node_modules/@foo/bar",
+            "main": "/node_modules/@foo/bar/index.js"
+        }
+    ]
+}

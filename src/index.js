@@ -8,7 +8,7 @@ var lassoCachingFS = require('lasso-caching-fs');
 
 var extend = require('raptor-util/extend');
 
-function resolveMain(dir, meta) {
+function resolveMain(dir, meta, extensions) {
 
     var packagePath = path.join(dir, 'package.json');
     var pkg = lassoCachingFS.readPackageSync(packagePath);
@@ -23,7 +23,7 @@ function resolveMain(dir, meta) {
         main = './index';
     }
 
-    var resolvedMain = resolveFrom(dir, main, null, null);
+    var resolvedMain = resolveFrom(dir, main, null, null, extensions);
     if (!resolvedMain) {
         return undefined;
     }
@@ -39,7 +39,7 @@ function resolveMain(dir, meta) {
     return resolvedMain.path;
 }
 
-function tryExtensions(targetModule) {
+function tryExtensions(targetModule, extensions) {
     var originalExt = path.extname(targetModule);
     var hasExt = originalExt !== '';
     var stat = lassoCachingFS.statSync(targetModule);
@@ -58,9 +58,9 @@ function tryExtensions(targetModule) {
     }
 
     // Try with the extensions
-    var extensions = require.extensions;
-    for (var ext in extensions) {
-        if (extensions.hasOwnProperty(ext) && ext !== '.node' && ext !== originalExt) {
+    for (var i=0, len=extensions.length; i<len; i++) {
+        var ext = extensions[i];
+        if (ext !== originalExt) {
             var targetModuleWithExt = targetModule + ext;
             stat = lassoCachingFS.statSync(targetModuleWithExt);
             if (stat.exists()) {
@@ -70,13 +70,13 @@ function tryExtensions(targetModule) {
     }
 }
 
-function resolveFrom(fromDir, targetModule, meta, remaps) {
+function resolveFrom(fromDir, targetModule, meta, remaps, extensions) {
     var resolved;
     var resolvedPath;
     var stat;
 
     if (isAbsolute(targetModule)) {
-        resolved = tryExtensions(targetModule);
+        resolved = tryExtensions(targetModule, extensions);
         if (!resolved) {
             return undefined;
         }
@@ -86,7 +86,7 @@ function resolveFrom(fromDir, targetModule, meta, remaps) {
     } else if (targetModule.charAt(0) === '.') {
         // Don't go through the search paths for relative paths
         resolvedPath = path.join(fromDir, targetModule);
-        resolved = tryExtensions(resolvedPath);
+        resolved = tryExtensions(resolvedPath, extensions);
         if (!resolved) {
             return undefined;
         }
@@ -98,10 +98,15 @@ function resolveFrom(fromDir, targetModule, meta, remaps) {
         var packageName;
         var packageRelativePath;
 
+        if (sepIndex !== -1 && targetModule.charAt(0) === '@') {
+            sepIndex = targetModule.indexOf('/', sepIndex+1);
+        }
+
         if (sepIndex === -1) {
             packageName = targetModule;
             packageRelativePath = null;
         } else {
+
             packageName = targetModule.substring(0, sepIndex);
             packageRelativePath = targetModule.substring(sepIndex + 1);
         }
@@ -120,13 +125,14 @@ function resolveFrom(fromDir, targetModule, meta, remaps) {
                     meta.push({
                         type: 'installed',
                         packageName: packageName,
-                        searchPath: searchPath
+                        searchPath: searchPath,
+                        fromDir: fromDir
                     });
                 }
                 // The installed module has been found, but now need to find the module
                 // within the package
                 if (packageRelativePath) {
-                    return resolveFrom(packagePath, './' + packageRelativePath, meta, remaps);
+                    return resolveFrom(packagePath, './' + packageRelativePath, meta, remaps, extensions);
                 } else {
                     resolvedPath = packagePath;
                 }
@@ -140,7 +146,7 @@ function resolveFrom(fromDir, targetModule, meta, remaps) {
     }
 
     if (stat.isDirectory()) {
-        resolvedPath = resolveMain(resolvedPath, meta);
+        resolvedPath = resolveMain(resolvedPath, meta, extensions);
         if (!resolvedPath) {
             return undefined;
         }
@@ -149,7 +155,7 @@ function resolveFrom(fromDir, targetModule, meta, remaps) {
     var targetDir = path.dirname(resolvedPath);
 
     // The target file might have a different set of remaps based on where it is located on the file system
-    var targetRemaps = !remaps || targetDir === fromDir ? null : browserRemapsLoader.load(path.dirname(resolvedPath), resolveFrom);
+    var targetRemaps = !remaps || targetDir === fromDir ? null : browserRemapsLoader.load(path.dirname(resolvedPath), resolveFrom, extensions);
 
     var voidRemap = false;
     if (remaps) {
@@ -212,13 +218,26 @@ module.exports = function(fromDir, targetModule, options) {
     var includeMeta = options && options.includeMeta === true;
     var meta = includeMeta ? [] : undefined;
 
-    var remaps = browserRemapsLoader.load(fromDir, resolveFrom);
+    var extensions = options && options.extensions;
+
+    if (!extensions) {
+        extensions = [];
+
+        let nodeRequireExtensions = require.extensions;
+        for (let ext in nodeRequireExtensions) {
+            if (ext !== '.node') {
+                extensions.push(ext);
+            }
+        }
+    }
+
+    var remaps = browserRemapsLoader.load(fromDir, resolveFrom, extensions);
     if (options && options.remaps) {
         remaps = extend({}, remaps);
         extend(remaps, options.remaps);
     }
 
-    var resolved = resolveFrom(fromDir, targetModule, meta, remaps);
+    var resolved = resolveFrom(fromDir, targetModule, meta, remaps, extensions);
 
     if (resolved == null) {
         return undefined;

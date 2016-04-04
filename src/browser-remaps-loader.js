@@ -6,15 +6,15 @@ var flattenedBrowserRemapsByDir = {};
 
 var browserRemapsByDir = {};
 
-function resolveMain(dir, resolveFrom) {
+function resolveMain(dir, resolveFrom, extensions) {
     var meta = [];
     var remaps = null;
 
-    var resolved = resolveFrom(dir, './', meta, remaps);
+    var resolved = resolveFrom(dir, './', meta, remaps, extensions);
     return resolved;
 }
 
-function resolveBrowserPath(path, dir, resolveFrom) {
+function resolveBrowserPath(path, dir, resolveFrom, extensions) {
 
     var meta = [];
     var remaps = null;
@@ -22,18 +22,18 @@ function resolveBrowserPath(path, dir, resolveFrom) {
     var resolved;
 
     if (path.charAt(0) === '.') {
-        resolved = resolveFrom(dir, path, meta, remaps);
+        resolved = resolveFrom(dir, path, meta, remaps, extensions);
     } else {
-        resolved = resolveFrom(dir, './' + path, meta, remaps);
+        resolved = resolveFrom(dir, './' + path, meta, remaps, extensions);
         if (!resolved) {
-            resolved = resolveFrom(dir, path, meta, remaps);
+            resolved = resolveFrom(dir, path, meta, remaps, extensions);
         }
     }
 
     return resolved;
 }
 
-function loadBrowserRemapsFromPackage(pkg, dir, resolveFrom) {
+function loadBrowserRemapsFromPackage(pkg, dir, resolveFrom, extensions) {
     var browser = pkg.browser;
 
     if (pkg.browser === undefined) {
@@ -47,19 +47,19 @@ function loadBrowserRemapsFromPackage(pkg, dir, resolveFrom) {
     var browserRemaps = {};
 
     if (typeof browser === 'string' || browser === false) {
-        var resolvedMain = resolveMain(dir, resolveFrom); // Resolve the main file for the current directory
+        var resolvedMain = resolveMain(dir, resolveFrom, extensions); // Resolve the main file for the current directory
         if (!resolvedMain) {
             throw new Error('Invalid "browser" field in "' + nodePath.join(dir, 'package.json') + '". Module not found: ' + dir);
         }
 
-        browserRemaps[resolvedMain.path] = browser ? resolveBrowserPath(browser, dir, resolveFrom) : false;
+        browserRemaps[resolvedMain.path] = browser ? resolveBrowserPath(browser, dir, resolveFrom, extensions) : false;
     } else {
         for (var source in browser) {
             if (browser.hasOwnProperty(source)) {
                 var target = browser[source];
-                var resolvedSource = resolveBrowserPath(source, dir, resolveFrom);
+                var resolvedSource = resolveBrowserPath(source, dir, resolveFrom, extensions);
                 if (resolvedSource) {
-                    browserRemaps[resolvedSource.path] = target === false ? false : resolveBrowserPath(target, dir, resolveFrom);
+                    browserRemaps[resolvedSource.path] = target === false ? false : resolveBrowserPath(target, dir, resolveFrom, extensions);
                 }
             }
         }
@@ -68,7 +68,7 @@ function loadBrowserRemapsFromPackage(pkg, dir, resolveFrom) {
     return browserRemaps;
 }
 
-exports.load = function(dir, resolveFrom) {
+exports.load = function(dir, resolveFrom, extensions) {
     ok(dir, '"dirname" is required');
     ok(typeof dir === 'string', '"dirname" must be a string');
 
@@ -89,7 +89,7 @@ exports.load = function(dir, resolveFrom) {
             var pkg = lassoCachingFS.readPackageSync(packagePath);
 
             if (pkg) {
-                currentBrowserRemaps = loadBrowserRemapsFromPackage(pkg, currentDir, resolveFrom);
+                currentBrowserRemaps = loadBrowserRemapsFromPackage(pkg, currentDir, resolveFrom, extensions);
             }
 
             browserRemapsByDir[dir] = currentBrowserRemaps || null;
