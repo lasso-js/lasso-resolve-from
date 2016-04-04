@@ -4,7 +4,8 @@
         {
             "type": "installed",
             "packageName": "symlink-module",
-            "searchPath": "/node_modules"
+            "searchPath": "/node_modules",
+            "fromDir": ""
         },
         {
             "type": "main",

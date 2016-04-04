@@ -4,7 +4,8 @@
         {
             "type": "installed",
             "packageName": "installed",
-            "searchPath": "/node_modules"
+            "searchPath": "/node_modules",
+            "fromDir": ""
         },
         {
             "type": "main",
@@ -19,7 +20,8 @@
         {
             "type": "installed",
             "packageName": "installed-browser",
-            "searchPath": "/node_modules"
+            "searchPath": "/node_modules",
+            "fromDir": ""
         },
         {
             "type": "main",

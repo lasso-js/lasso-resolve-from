@@ -9,7 +9,8 @@
         {
             "type": "installed",
             "packageName": "installed-foo",
-            "searchPath": "/node_modules"
+            "searchPath": "/node_modules",
+            "fromDir": ""
         },
         {
             "type": "main",
