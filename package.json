@@ -11,6 +11,7 @@
   "license": "Apache-2.0",
   "dependencies": {
     "is-absolute": "^0.2.3",
+    "lasso-caching-fs": "^1.0.1",
     "raptor-util": "^1.0.10"
   },
   "devDependencies": {
