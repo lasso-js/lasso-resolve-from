@@ -44,14 +44,14 @@ function tryExtensions(targetModule, extensions) {
     var hasExt = originalExt !== '';
     var stat = lassoCachingFS.statSync(targetModule);
 
-    if (stat.exists()) {
+    if (stat.exists() && !stat.isDirectory()) {
         return [targetModule, stat];
     }
 
     if (!hasExt) {
         // Short circuit for the most common case where it is a JS file
         var withJSExt = targetModule + '.js';
-        stat = lassoCachingFS.statSync(targetModule);
+        stat = lassoCachingFS.statSync(withJSExt);
         if (stat.exists()) {
             return [withJSExt, stat];
         }
@@ -87,12 +87,21 @@ function resolveFrom(fromDir, targetModule, meta, remaps, extensions) {
         // Don't go through the search paths for relative paths
         resolvedPath = path.join(fromDir, targetModule);
         resolved = tryExtensions(resolvedPath, extensions);
+
         if (!resolved) {
-            return undefined;
+            stat = lassoCachingFS.statSync(resolvedPath);
+            if (stat && stat.isDirectory()) {
+                resolvedPath = resolvedPath;
+            } else {
+                return undefined;
+            }
         }
 
-        resolvedPath = resolved[0];
-        stat = resolved[1];
+        if (!stat) {
+            resolvedPath = resolved[0];
+            stat = resolved[1];
+        }
+
     } else {
         var sepIndex = targetModule.indexOf('/');
         var packageName;
