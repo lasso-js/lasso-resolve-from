@@ -77,7 +77,7 @@ exports.load = function(dir, resolveFrom, extensions) {
         return browserRemaps;
     }
 
-    browserRemaps = {};
+    flattenedBrowserRemapsByDir[dir] = browserRemaps = {};
 
     var currentDir = dir;
 
@@ -109,8 +109,6 @@ exports.load = function(dir, resolveFrom, extensions) {
         }
         currentDir = parentDir;
     }
-
-    flattenedBrowserRemapsByDir[dir] = browserRemaps;
 
     return browserRemaps;
 };

@@ -161,10 +161,8 @@ function resolveFrom(fromDir, targetModule, meta, remaps, extensions) {
         }
     }
 
-    var targetDir = path.dirname(resolvedPath);
-
     // The target file might have a different set of remaps based on where it is located on the file system
-    var targetRemaps = !remaps || targetDir === fromDir ? null : browserRemapsLoader.load(path.dirname(resolvedPath), resolveFrom, extensions);
+    var targetRemaps = !remaps ? null : browserRemapsLoader.load(path.dirname(resolvedPath), resolveFrom, extensions);
 
     var voidRemap = false;
     if (remaps) {
