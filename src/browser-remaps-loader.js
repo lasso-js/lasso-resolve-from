@@ -59,7 +59,19 @@ function loadBrowserRemapsFromPackage(pkg, dir, resolveFrom, extensions) {
                 var target = browser[source];
                 var resolvedSource = resolveBrowserPath(source, dir, resolveFrom, extensions);
                 if (resolvedSource) {
-                    browserRemaps[resolvedSource.path] = target === false ? false : resolveBrowserPath(target, dir, resolveFrom, extensions);
+                    var remapTo;
+
+                    if (target === false) {
+                        remapTo = false;
+                    } else {
+                        remapTo = resolveBrowserPath(target, dir, resolveFrom, extensions);
+                        if (!remapTo) {
+                            // Invalid path...
+                            continue;
+                        }
+                    }
+
+                    browserRemaps[resolvedSource.path] = remapTo;
                 }
             }
         }
@@ -92,7 +104,7 @@ exports.load = function(dir, resolveFrom, extensions) {
                 currentBrowserRemaps = loadBrowserRemapsFromPackage(pkg, currentDir, resolveFrom, extensions);
             }
 
-            browserRemapsByDir[dir] = currentBrowserRemaps || null;
+            browserRemapsByDir[currentDir] = currentBrowserRemaps || null;
         }
 
         if (currentBrowserRemaps) {
@@ -103,7 +115,7 @@ exports.load = function(dir, resolveFrom, extensions) {
             }
         }
 
-        var parentDir = nodePath.dirname(dir);
+        var parentDir = nodePath.dirname(currentDir);
         if (!parentDir || parentDir === currentDir) {
             break;
         }
