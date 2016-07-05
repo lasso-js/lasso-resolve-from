@@ -12,7 +12,8 @@
   "dependencies": {
     "is-absolute": "^0.2.3",
     "lasso-caching-fs": "^1.0.1",
-    "raptor-util": "^1.0.10"
+    "raptor-util": "^1.0.10",
+    "resolve-from": "^2.0.0"
   },
   "devDependencies": {
     "chai": "^3.5.0",

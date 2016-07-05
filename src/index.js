@@ -5,7 +5,7 @@ var Module = require('module').Module;
 var isAbsolute = require('is-absolute');
 var browserRemapsLoader = require('./browser-remaps-loader');
 var lassoCachingFS = require('lasso-caching-fs');
-
+var nodeResolveFrom = require('resolve-from');
 var extend = require('raptor-util/extend');
 
 function resolveMain(dir, meta, extensions) {
@@ -146,6 +146,19 @@ function resolveFrom(fromDir, targetModule, meta, remaps, extensions) {
                     resolvedPath = packagePath;
                 }
                 break;
+            }
+        }
+
+        if (!resolvedPath) {
+            // If we still didn't resolve the path then let's go through the native Node.js module
+            // resolver as a last resort. The `resolve-from` module internally uses Module._resolveFilename
+            // and it is possible that this method could have been patched.
+            resolvedPath = nodeResolveFrom(fromDir, targetModule);
+            if (resolvedPath === targetModule) {
+                // If this is a native module such as "buffer" it will still resolve to the same string.
+                // If it is a native module then we want to the resolved path to be null since we will
+                // resolve native modules for the browser separately
+                resolvedPath = null;
             }
         }
 
