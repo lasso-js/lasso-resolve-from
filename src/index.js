@@ -187,7 +187,7 @@ function resolveFrom(fromDir, targetModule, meta, remaps, extensions) {
                 remapTo = targetRemaps[resolvedPath];
             }
 
-            if (remapTo === undefined) {
+            if (remapTo == null || remapTo.path === resolvedPath) {
                 break;
             } else {
                 var remapToTarget = typeof remapTo === 'object' ? remapTo.path : remapTo;
