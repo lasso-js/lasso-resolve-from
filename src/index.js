@@ -7,6 +7,7 @@ var browserRemapsLoader = require('./browser-remaps-loader');
 var lassoCachingFS = require('lasso-caching-fs');
 var nodeResolveFrom = require('resolve-from');
 var extend = require('raptor-util/extend');
+var isObjectEmpty = require('raptor-util/isObjectEmpty');
 
 function resolveMain(dir, meta, extensions) {
 
@@ -23,7 +24,7 @@ function resolveMain(dir, meta, extensions) {
         main = './index';
     }
 
-    var resolvedMain = resolveFrom(dir, main, null, null, extensions);
+    var resolvedMain = resolveFrom(dir, main, extensions);
     if (!resolvedMain) {
         return undefined;
     }
@@ -37,6 +38,23 @@ function resolveMain(dir, meta, extensions) {
     }
 
     return resolvedMain.path;
+}
+
+function loadRemaps(dir, extensions, additionalRemaps) {
+    var remaps = browserRemapsLoader.load(dir, resolveFrom, extensions);
+
+    if (additionalRemaps) {
+        if (typeof additionalRemaps === 'function') {
+            additionalRemaps = additionalRemaps(dir);
+        }
+
+        if (additionalRemaps && !isObjectEmpty(additionalRemaps)) {
+            remaps = extend({}, remaps);
+            extend(remaps, additionalRemaps);
+        }
+    }
+
+    return remaps;
 }
 
 function tryExtensions(targetModule, extensions) {
@@ -70,7 +88,7 @@ function tryExtensions(targetModule, extensions) {
     }
 }
 
-function resolveFrom(fromDir, targetModule, meta, remaps, extensions) {
+function resolveFrom(fromDir, targetModule, extensions, meta, shouldLoadRemaps, additionalRemaps) {
     var resolved;
     var resolvedPath;
     var stat;
@@ -141,7 +159,7 @@ function resolveFrom(fromDir, targetModule, meta, remaps, extensions) {
                 // The installed module has been found, but now need to find the module
                 // within the package
                 if (packageRelativePath) {
-                    return resolveFrom(packagePath, './' + packageRelativePath, meta, remaps, extensions);
+                    return resolveFrom(packagePath, './' + packageRelativePath, extensions, meta, shouldLoadRemaps, additionalRemaps);
                 } else {
                     resolvedPath = packagePath;
                 }
@@ -174,14 +192,18 @@ function resolveFrom(fromDir, targetModule, meta, remaps, extensions) {
         }
     }
 
-    // The target file might have a different set of remaps based on where it is located on the file system
-    var targetRemaps = !remaps ? null : browserRemapsLoader.load(path.dirname(resolvedPath), resolveFrom, extensions);
 
     var voidRemap = false;
-    if (remaps) {
+    if (shouldLoadRemaps) {
+        var fromRemaps = loadRemaps(fromDir, extensions, additionalRemaps);
+
+        var targetDir = path.dirname(resolvedPath);
+        // The target file might have a different set of remaps based on where it is located on the file system
+        var targetRemaps = loadRemaps(targetDir, extensions, additionalRemaps);
+
         // Handle all of the remappings
         while (true) {
-            var remapTo = remaps[resolvedPath];
+            var remapTo = fromRemaps[resolvedPath];
 
             if (remapTo === undefined && targetRemaps) {
                 remapTo = targetRemaps[resolvedPath];
@@ -212,6 +234,12 @@ function resolveFrom(fromDir, targetModule, meta, remaps, extensions) {
                 }
 
                 resolvedPath = remapToTarget;
+
+                var newDir = path.dirname(resolvedPath);
+                if (newDir !== targetDir) {
+                    targetDir = newDir;
+                    targetRemaps = loadRemaps(targetDir, extensions, additionalRemaps);
+                }
             }
         }
     }
@@ -235,10 +263,19 @@ module.exports = function(fromDir, targetModule, options) {
     ok(fromDir, '"fromDir" is required');
     ok(typeof fromDir === 'string', '"fromDir" should be a string');
 
-    var includeMeta = options && options.includeMeta === true;
-    var meta = includeMeta ? [] : undefined;
+    var includeMeta;
+    var extensions;
+    var meta;
+    var additionalRemaps;
 
-    var extensions = options && options.extensions;
+    if (options) {
+        includeMeta = options.includeMeta === true;
+        meta = includeMeta ? [] : undefined;
+
+        extensions = options.extensions;
+
+        additionalRemaps = options.remaps;
+    }
 
     if (!extensions) {
         extensions = [];
@@ -251,13 +288,7 @@ module.exports = function(fromDir, targetModule, options) {
         }
     }
 
-    var remaps = browserRemapsLoader.load(fromDir, resolveFrom, extensions);
-    if (options && options.remaps) {
-        remaps = extend({}, remaps);
-        extend(remaps, options.remaps);
-    }
-
-    var resolved = resolveFrom(fromDir, targetModule, meta, remaps, extensions);
+    var resolved = resolveFrom(fromDir, targetModule, extensions, meta, true /*shouldLoadRemaps*/, additionalRemaps);
 
     if (resolved == null) {
         return undefined;

@@ -8,25 +8,21 @@ var browserRemapsByDir = {};
 
 function resolveMain(dir, resolveFrom, extensions) {
     var meta = [];
-    var remaps = null;
-
-    var resolved = resolveFrom(dir, './', meta, remaps, extensions);
+    var resolved = resolveFrom(dir, './', extensions, meta);
     return resolved;
 }
 
 function resolveBrowserPath(path, dir, resolveFrom, extensions) {
-
     var meta = [];
-    var remaps = null;
 
     var resolved;
 
     if (path.charAt(0) === '.') {
-        resolved = resolveFrom(dir, path, meta, remaps, extensions);
+        resolved = resolveFrom(dir, path, extensions, meta);
     } else {
-        resolved = resolveFrom(dir, './' + path, meta, remaps, extensions);
+        resolved = resolveFrom(dir, './' + path, extensions, meta);
         if (!resolved) {
-            resolved = resolveFrom(dir, path, meta, remaps, extensions);
+            resolved = resolveFrom(dir, path, extensions, meta);
         }
     }
 
